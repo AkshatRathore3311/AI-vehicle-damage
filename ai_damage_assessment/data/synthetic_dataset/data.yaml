@@ -1,0 +1,13 @@
+# Ultralytics YOLO11-seg Synthetic Dataset Config
+path: C:/Users/aksha/OneDrive/Desktop/peppo/antigr/ai_damage_assessment/data/synthetic_dataset
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: dent
+  1: scratch
+  2: crack
+  3: glass_shatter
+  4: lamp_broken
+  5: tire_flat

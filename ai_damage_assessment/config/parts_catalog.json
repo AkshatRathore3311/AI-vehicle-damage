@@ -1,0 +1,122 @@
+{
+  "front_bumper": {
+    "base_part_price": 6500.0,
+    "standard_labor_replace_hours": 2.5,
+    "standard_labor_repair_hours": 1.5,
+    "paint_panels_count": 1.0,
+    "paint_labor_hours": 2.0,
+    "material_type": "polypropylene"
+  },
+  "rear_bumper": {
+    "base_part_price": 5800.0,
+    "standard_labor_replace_hours": 2.2,
+    "standard_labor_repair_hours": 1.4,
+    "paint_panels_count": 1.0,
+    "paint_labor_hours": 2.0,
+    "material_type": "polypropylene"
+  },
+  "hood": {
+    "base_part_price": 8500.0,
+    "standard_labor_replace_hours": 3.0,
+    "standard_labor_repair_hours": 2.0,
+    "paint_panels_count": 1.5,
+    "paint_labor_hours": 3.0,
+    "material_type": "aluminum"
+  },
+  "fender_left": {
+    "base_part_price": 4200.0,
+    "standard_labor_replace_hours": 2.0,
+    "standard_labor_repair_hours": 1.5,
+    "paint_panels_count": 1.0,
+    "paint_labor_hours": 1.8,
+    "material_type": "steel"
+  },
+  "fender_right": {
+    "base_part_price": 4200.0,
+    "standard_labor_replace_hours": 2.0,
+    "standard_labor_repair_hours": 1.5,
+    "paint_panels_count": 1.0,
+    "paint_labor_hours": 1.8,
+    "material_type": "steel"
+  },
+  "door_front_left": {
+    "base_part_price": 9500.0,
+    "standard_labor_replace_hours": 3.5,
+    "standard_labor_repair_hours": 2.2,
+    "paint_panels_count": 1.2,
+    "paint_labor_hours": 2.5,
+    "material_type": "steel"
+  },
+  "door_front_right": {
+    "base_part_price": 9500.0,
+    "standard_labor_replace_hours": 3.5,
+    "standard_labor_repair_hours": 2.2,
+    "paint_panels_count": 1.2,
+    "paint_labor_hours": 2.5,
+    "material_type": "steel"
+  },
+  "door_rear_left": {
+    "base_part_price": 8800.0,
+    "standard_labor_replace_hours": 3.2,
+    "standard_labor_repair_hours": 2.0,
+    "paint_panels_count": 1.2,
+    "paint_labor_hours": 2.5,
+    "material_type": "steel"
+  },
+  "door_rear_right": {
+    "base_part_price": 8800.0,
+    "standard_labor_replace_hours": 3.2,
+    "standard_labor_repair_hours": 2.0,
+    "paint_panels_count": 1.2,
+    "paint_labor_hours": 2.5,
+    "material_type": "steel"
+  },
+  "windshield": {
+    "base_part_price": 7500.0,
+    "standard_labor_replace_hours": 2.8,
+    "standard_labor_repair_hours": 0.8,
+    "paint_panels_count": 0,
+    "paint_labor_hours": 0.0,
+    "material_type": "laminated_glass"
+  },
+  "headlamp_assembly": {
+    "base_part_price": 5500.0,
+    "standard_labor_replace_hours": 1.2,
+    "standard_labor_repair_hours": 0.5,
+    "paint_panels_count": 0,
+    "paint_labor_hours": 0.0,
+    "material_type": "polycarbonate"
+  },
+  "taillamp_assembly": {
+    "base_part_price": 4200.0,
+    "standard_labor_replace_hours": 1.0,
+    "standard_labor_repair_hours": 0.4,
+    "paint_panels_count": 0,
+    "paint_labor_hours": 0.0,
+    "material_type": "polycarbonate"
+  },
+  "wheel_tire": {
+    "base_part_price": 4500.0,
+    "standard_labor_replace_hours": 0.8,
+    "standard_labor_repair_hours": 0.5,
+    "paint_panels_count": 0,
+    "paint_labor_hours": 0.0,
+    "material_type": "rubber_alloy"
+  },
+  "roof": {
+    "base_part_price": 14000.0,
+    "standard_labor_replace_hours": 5.0,
+    "standard_labor_repair_hours": 3.0,
+    "paint_panels_count": 1.8,
+    "paint_labor_hours": 3.5,
+    "material_type": "steel"
+  },
+  "general_panel": {
+    "base_part_price": 5000.0,
+    "standard_labor_replace_hours": 2.5,
+    "standard_labor_repair_hours": 1.5,
+    "paint_panels_count": 1.0,
+    "paint_labor_hours": 2.0,
+    "material_type": "composite"
+  }
+}

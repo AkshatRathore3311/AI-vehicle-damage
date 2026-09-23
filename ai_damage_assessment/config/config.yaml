@@ -1,0 +1,84 @@
+# AI Vehicle Damage Assessment Configuration (INR Currency)
+system:
+  project_name: "AI Vehicle Damage Assessment and Explainable Cost Estimator"
+  version: "1.0.0"
+  device: "cpu"
+  random_seed: 42
+
+damage_classes:
+  - id: 0
+    name: "dent"
+    base_severity_weight: 1.2
+    description: "Surface depression on metal or plastic panels"
+  - id: 1
+    name: "scratch"
+    base_severity_weight: 0.8
+    description: "Paint surface abrasion / clear coat damage"
+  - id: 2
+    name: "crack"
+    base_severity_weight: 1.5
+    description: "Fracture in bumper, grille, or composite panel"
+  - id: 3
+    name: "glass_shatter"
+    base_severity_weight: 2.2
+    description: "Cracked, chipped, or shattered window/windshield glass"
+  - id: 4
+    name: "lamp_broken"
+    base_severity_weight: 2.0
+    description: "Cracked lens or broken headlamp/taillight"
+  - id: 5
+    name: "tire_flat"
+    base_severity_weight: 1.8
+    description: "Punctured, deflated tire or rim damage"
+
+models:
+  prototype:
+    name: "yolo11n-seg"
+    weights: "yolo11n-seg.pt"
+    imgsz: 640
+    conf_threshold: 0.25
+    iou_threshold: 0.45
+  main:
+    name: "yolo11s-seg"
+    weights: "yolo11s-seg.pt"
+    imgsz: 640
+    conf_threshold: 0.25
+    iou_threshold: 0.45
+
+severity:
+  thresholds:
+    minor_max: 0.35
+    moderate_max: 0.70
+  weights:
+    relative_area: 0.35
+    pixel_area_log: 0.20
+    class_weight: 0.30
+    contour_complexity: 0.15
+
+cost:
+  currency: "INR"
+  currency_symbol: "₹"
+  labor_rate_per_hour: 650.00
+  paint_rate_per_hour: 750.00
+  paint_material_rate_per_sq_ft: 450.00
+  shop_supplies_rate: 0.08
+  sales_tax_rate: 0.18  # 18% GST in India
+  vehicle_multipliers:
+    sedan: 1.0
+    hatchback: 0.90
+    suv: 1.25
+    truck: 1.35
+    luxury: 1.85
+    bike: 0.60
+    bus: 1.90
+
+uncertainty:
+  entropy_weight: 0.40
+  size_penalty_factor: 0.20
+  high_confidence_thresh: 0.80
+  moderate_confidence_thresh: 0.60
+
+fusion:
+  iou_threshold: 0.35
+  visual_similarity_threshold: 0.65
+  max_feature_dim: 128

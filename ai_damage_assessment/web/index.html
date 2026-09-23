@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoDamage AI - Vehicle Damage & Repair Cost Estimator</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0b0f19; color: #f3f4f6; }
+    .glass { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glass:hover { border-color: rgba(99, 102, 241, 0.3); }
+    .gradient-text { background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .gradient-btn { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); transition: all 0.3s; }
+    .gradient-btn:hover { box-shadow: 0 0 25px rgba(99, 102, 241, 0.5); transform: translateY(-2px); }
+    .drop-zone { border: 2px dashed rgba(99, 102, 241, 0.4); transition: all 0.3s; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #6366f1; background: rgba(99, 102, 241, 0.06); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+  <header class="border-b border-gray-800 bg-gray-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="resetToUpload()">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-car-burst text-white text-lg"></i>
+        </div>
+        <div>
+          <span class="text-xl font-bold tracking-tight text-white">AutoDamage<span class="text-indigo-400">AI</span></span>
+          <span class="ml-2 text-xs uppercase px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 font-semibold">YOLO11-Seg</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span class="flex items-center text-xs font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2"></span> AI Ready
+        </span>
+        <a href="/docs" target="_blank" class="text-xs text-gray-400 hover:text-white transition"><i class="fa-solid fa-code mr-1"></i> API Docs</a>
+      </div>
+    </div>
+  </header>
+  <main class="flex-grow max-w-7xl mx-auto w-full px-4 py-8">
+    <div id="uploadView" class="max-w-4xl mx-auto space-y-8">
+      <div class="text-center space-y-3">
+        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-medium">
+          <i class="fa-solid fa-sparkles"></i> <span>Fine-Grained Segmentation & Explainable Estimation</span>
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
+          Inspect Vehicle Damage <br/><span class="gradient-text">Instant Health & Repair Cost in Rupees (₹)</span>
+        </h1>
+        <p class="text-gray-400 text-sm sm:text-base max-w-2xl mx-auto">
+          Upload single or multiple vehicle photos. Our YOLO11-seg pipeline detects exact damage polygons, evaluates structural severity, and calculates explainable repair costs in INR.
+        </p>
+      </div>
+
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-3">
+            <i class="fa-solid fa-layer-group text-indigo-400 mr-1"></i> 1. Select Vehicle Category
+          </label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button type="button" onclick="setVehicleType('sedan', this)" class="vtype-btn active flex items-center space-x-3 p-3 rounded-xl border border-indigo-500 bg-indigo-500/20 text-white">
+              <i class="fa-solid fa-car text-xl text-indigo-400"></i>
+              <div class="text-left"><div class="text-sm font-bold">Sedan / Hatch</div><div class="text-[11px] text-gray-400">Standard Car</div></div>
+            </button>
+            <button type="button" onclick="setVehicleType('suv', this)" class="vtype-btn flex items-center space-x-3 p-3 rounded-xl border border-gray-800 bg-gray-900/60 text-gray-300 hover:border-gray-700">
+              <i class="fa-solid fa-truck-monster text-xl text-gray-400"></i>
+              <div class="text-left"><div class="text-sm font-bold">SUV / MUV</div><div class="text-[11px] text-gray-400">Compact / Full SUV</div></div>
+            </button>
+            <button type="button" onclick="setVehicleType('luxury', this)" class="vtype-btn flex items-center space-x-3 p-3 rounded-xl border border-gray-800 bg-gray-900/60 text-gray-300 hover:border-gray-700">
+              <i class="fa-solid fa-crown text-xl text-yellow-500"></i>
+              <div class="text-left"><div class="text-sm font-bold">Luxury Car</div><div class="text-[11px] text-gray-400">Premium OEM</div></div>
+            </button>
+            <button type="button" onclick="setVehicleType('bike', this)" class="vtype-btn flex items-center space-x-3 p-3 rounded-xl border border-gray-800 bg-gray-900/60 text-gray-300 hover:border-gray-700">
+              <i class="fa-solid fa-motorcycle text-xl text-emerald-400"></i>
+              <div class="text-left"><div class="text-sm font-bold">Two-Wheeler</div><div class="text-[11px] text-gray-400">Bike / Scooter</div></div>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+            <i class="fa-solid fa-tag text-indigo-400 mr-1"></i> 2. Vehicle Make & Model
+          </label>
+          <input type="text" id="makeModelInput" placeholder="e.g. Maruti Swift, Hyundai Creta, Tata Nexon, Honda City" 
+            class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+            <i class="fa-solid fa-images text-indigo-400 mr-1"></i> 3. Upload Vehicle Damage Photos (Single or Multiple)
+          </label>
+          <div id="dropZone" class="drop-zone rounded-2xl p-8 text-center cursor-pointer relative bg-gray-900/40">
+            <input type="file" id="fileInput" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(event)">
+            <div class="space-y-3">
+              <div class="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto text-2xl">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+              </div>
+              <div class="text-sm text-gray-200"><span class="font-semibold text-indigo-400">Click to browse</span> or drag and drop photos here</div>
+              <p class="text-xs text-gray-500">Supports JPG, PNG, WEBP (Upload multiple view angles to test deduplication)</p>
+            </div>
+          </div>
+          <div id="previewContainer" class="hidden mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+        </div>
+
+        <button id="analyzeBtn" onclick="submitInspection()" disabled class="w-full py-4 rounded-xl text-base font-bold text-white gradient-btn flex items-center justify-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-xl shadow-indigo-600/20">
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
+          <span>Analyze Damage & Calculate Repair Cost (₹)</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="loadingView" class="hidden max-w-md mx-auto text-center py-20 space-y-6">
+      <div class="relative w-20 h-20 mx-auto">
+        <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
+        <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+        <div class="absolute inset-0 flex items-center justify-center text-indigo-400 text-2xl">
+          <i class="fa-solid fa-car-burst animate-pulse"></i>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <h3 class="text-xl font-bold text-white">Analyzing Vehicle Images...</h3>
+        <p class="text-xs text-gray-400">Running YOLO11-seg segmentation, measuring geometric area, and estimating repair costs in Rupees (₹)...</p>
+      </div>
+    </div>
+    <div id="resultsView" class="hidden space-y-8">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+        <div>
+          <button onclick="resetToUpload()" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 mb-1">
+            <i class="fa-solid fa-arrow-left"></i> <span>Inspect Another Vehicle</span>
+          </button>
+          <h2 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+            <span id="resVehicleName">Vehicle Inspection</span>
+            <span id="resStatusBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Approved</span>
+          </h2>
+        </div>
+        <div class="flex items-center space-x-3">
+          <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-gray-900 border border-gray-700 hover:bg-gray-800 text-xs font-semibold text-gray-200 flex items-center space-x-2 transition">
+            <i class="fa-solid fa-print"></i> <span>Print Report</span>
+          </button>
+          <button onclick="resetToUpload()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center space-x-2 transition">
+            <i class="fa-solid fa-plus"></i> <span>New Assessment</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="glass rounded-2xl p-6 border-emerald-500/30 bg-emerald-950/10 space-y-3 relative overflow-hidden">
+          <div class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+            <span>Total Estimated Repair Cost</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">INR (₹)</span>
+          </div>
+          <div class="text-4xl font-extrabold text-white tracking-tight" id="resExpectedCost">₹ 0</div>
+          <div class="text-xs text-gray-400 flex items-center justify-between pt-1 border-t border-gray-800/80">
+            <span>Cost Range:</span>
+            <span class="font-semibold text-emerald-300" id="resCostRange">₹ 0 - ₹ 0</span>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-6 space-y-3">
+          <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center justify-between">
+            <span>AI Confidence Score</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">Calibrated</span>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span class="text-4xl font-extrabold text-white tracking-tight" id="resConfidenceScore">0%</span>
+            <span class="text-xs text-gray-400">reliability</span>
+          </div>
+          <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+            <div id="resConfidenceBar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-6 space-y-3">
+          <div class="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center justify-between">
+            <span>Damage Summary</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300" id="resPhotosCount">1 Photo</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div class="bg-gray-900/60 p-2.5 rounded-xl text-center">
+              <div class="text-xl font-bold text-white" id="resUniqueDamagesCount">0</div>
+              <div class="text-[11px] text-gray-400">Unique Damages</div>
+            </div>
+            <div class="bg-gray-900/60 p-2.5 rounded-xl text-center">
+              <div class="text-xl font-bold text-indigo-400" id="resDeduplicatedCount">0</div>
+              <div class="text-[11px] text-gray-400">Duplicates Eliminated</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-eye text-indigo-400"></i>
+            <span>Visual Damage Segmentation Overlays</span>
+          </h3>
+          <span class="text-xs text-gray-400">YOLO11-seg Polygon Masks</span>
+        </div>
+        <div id="annotatedGallery" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+      </div>
+
+      <div class="glass rounded-2xl p-6 space-y-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-screwdriver-wrench text-indigo-400"></i>
+          <span>Damage Breakdown & Structural Decision Schedule</span>
+        </h3>
+        <div id="damagesListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </div>
+      <div class="glass rounded-2xl p-6 space-y-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-ruler-combined text-indigo-400"></i>
+          <span>Geometric & Physical Parameters</span>
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-gray-300">
+            <thead class="bg-gray-900/80 text-gray-400 uppercase tracking-wider text-[10px] border-b border-gray-800">
+              <tr>
+                <th class="p-3">Damage ID</th>
+                <th class="p-3">Type</th>
+                <th class="p-3">Part Location</th>
+                <th class="p-3">Pixel Area</th>
+                <th class="p-3">Coverage (%)</th>
+                <th class="p-3">Complexity</th>
+                <th class="p-3">Solidity</th>
+                <th class="p-3">Severity</th>
+              </tr>
+            </thead>
+            <tbody id="metricsTableBody" class="divide-y divide-gray-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-6 space-y-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-file-invoice-dollar text-emerald-400"></i>
+            <span>Itemized Repair Cost Schedule in Rupees (₹ INR)</span>
+          </h3>
+          <span class="text-xs px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+            Standard Pricing + 18% GST
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-gray-900/60 p-3.5 rounded-xl border border-gray-800">
+            <div class="text-[11px] text-gray-400">Parts Replacement</div>
+            <div class="text-lg font-bold text-white" id="resPartsSubtotal">₹ 0</div>
+          </div>
+          <div class="bg-gray-900/60 p-3.5 rounded-xl border border-gray-800">
+            <div class="text-[11px] text-gray-400">Body Repair Labor</div>
+            <div class="text-lg font-bold text-white" id="resLaborSubtotal">₹ 0</div>
+          </div>
+          <div class="bg-gray-900/60 p-3.5 rounded-xl border border-gray-800">
+            <div class="text-[11px] text-gray-400">Paint & Materials</div>
+            <div class="text-lg font-bold text-white" id="resPaintSubtotal">₹ 0</div>
+          </div>
+          <div class="bg-gray-900/60 p-3.5 rounded-xl border border-gray-800">
+            <div class="text-[11px] text-gray-400">Shop Supplies & GST</div>
+            <div class="text-lg font-bold text-white" id="resTaxSubtotal">₹ 0</div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-gray-300">
+            <thead class="bg-gray-900/80 text-gray-400 uppercase tracking-wider text-[10px] border-b border-gray-800">
+              <tr>
+                <th class="p-3">Category</th>
+                <th class="p-3">Description</th>
+                <th class="p-3 text-center">Quantity</th>
+                <th class="p-3 text-right">Unit Rate (₹)</th>
+                <th class="p-3 text-right">Total (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="lineItemsTableBody" class="divide-y divide-gray-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-gray-800/60 bg-gray-950/60 py-4 text-center text-xs text-gray-500">
+    AutoDamage AI Engine • YOLO11-seg Instance Segmentation • CarDD Architecture
+  </footer>
+  <script>
+    let selectedVehicleType = 'sedan';
+    let selectedFiles = [];
+
+    function setVehicleType(type, btn) {
+      selectedVehicleType = type;
+      document.querySelectorAll('.vtype-btn').forEach(b => {
+        b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+        b.classList.add('border-gray-800', 'bg-gray-900/60', 'text-gray-300');
+      });
+      btn.classList.remove('border-gray-800', 'bg-gray-900/60', 'text-gray-300');
+      btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+    }
+
+    function handleFileSelect(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      selectedFiles = files;
+      renderPreviews();
+    }
+
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover'].forEach(name => {
+      dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); }, false);
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false);
+    });
+    dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (dt.files && dt.files.length) {
+        selectedFiles = Array.from(dt.files);
+        renderPreviews();
+      }
+    });
+
+    function renderPreviews() {
+      const container = document.getElementById('previewContainer');
+      const analyzeBtn = document.getElementById('analyzeBtn');
+      container.innerHTML = '';
+      if (selectedFiles.length === 0) {
+        container.classList.add('hidden');
+        analyzeBtn.disabled = true;
+        return;
+      }
+      container.classList.remove('hidden');
+      analyzeBtn.disabled = false;
+      selectedFiles.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const div = document.createElement('div');
+          div.className = 'relative group rounded-xl overflow-hidden border border-gray-800 bg-gray-900 aspect-video';
+          div.innerHTML = '<img src="' + e.target.result + '" class="w-full h-full object-cover"><div class="absolute top-1 right-1 bg-black/70 px-1.5 py-0.5 rounded text-[10px] text-gray-300 font-mono">#' + (idx+1) + '</div>';
+          container.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitInspection() {
+      if (selectedFiles.length === 0) return;
+      document.getElementById('uploadView').classList.add('hidden');
+      document.getElementById('loadingView').classList.remove('hidden');
+      document.getElementById('resultsView').classList.add('hidden');
+
+      const formData = new FormData();
+      const makeModel = document.getElementById('makeModelInput').value || 'Vehicle';
+      formData.append('vehicle_type', selectedVehicleType);
+      formData.append('make_model', makeModel);
+
+      let endpoint = '';
+      if (selectedFiles.length === 1) {
+        endpoint = '/api/v1/inspect/single';
+        formData.append('file', selectedFiles[0]);
+        formData.append('include_image_overlay', 'true');
+      } else {
+        endpoint = '/api/v1/inspect/multi';
+        selectedFiles.forEach(f => formData.append('files', f));
+        formData.append('include_image_overlays', 'true');
+      }
+
+      try {
+        const res = await fetch(endpoint, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Analysis failed: ' + res.statusText);
+        const data = await res.json();
+        renderResults(data, makeModel);
+      } catch (err) {
+        alert('Inspection error: ' + err.message);
+        resetToUpload();
+      }
+    }
+
+    function renderResults(data, makeModel) {
+      document.getElementById('loadingView').classList.add('hidden');
+      document.getElementById('resultsView').classList.remove('hidden');
+
+      const isSingle = !data.summary;
+      const summary = isSingle ? {
+        total_images_processed: 1,
+        raw_detections_count: data.total_damages_detected,
+        fused_unique_damages_count: data.total_damages_detected,
+        duplicates_eliminated_count: 0,
+        overall_cost_range: data.overall_cost_range,
+        overall_cost_expected: data.overall_cost_range.expected_cost,
+        overall_confidence: data.overall_confidence,
+        requires_human_review: data.requires_human_review
+      } : data.summary;
+
+      const damages = isSingle ? data.damages : data.fused_damages;
+
+      document.getElementById('resVehicleName').textContent = makeModel + ' (' + selectedVehicleType.toUpperCase() + ')';
+      const badge = document.getElementById('resStatusBadge');
+      if (summary.requires_human_review) {
+        badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20';
+        badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Human Review Flagged';
+      } else {
+        badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+        badge.innerHTML = '<i class="fa-solid fa-circle-check mr-1"></i> Automated Settlement Approved';
+      }
+
+      const expCost = summary.overall_cost_range.expected_cost || summary.overall_cost_expected;
+      const minCost = summary.overall_cost_range.min_cost;
+      const maxCost = summary.overall_cost_range.max_cost;
+
+      document.getElementById('resExpectedCost').textContent = 'Rs. ' + Math.round(expCost).toLocaleString('en-IN');
+      document.getElementById('resCostRange').textContent = 'Rs. ' + Math.round(minCost).toLocaleString('en-IN') + ' - Rs. ' + Math.round(maxCost).toLocaleString('en-IN');
+
+      const confPct = Math.round(summary.overall_confidence * 100);
+      document.getElementById('resConfidenceScore').textContent = confPct + '%';
+      document.getElementById('resConfidenceBar').style.width = confPct + '%';
+
+      document.getElementById('resPhotosCount').textContent = summary.total_images_processed + ' Photo(s)';
+      document.getElementById('resUniqueDamagesCount').textContent = summary.fused_unique_damages_count;
+      document.getElementById('resDeduplicatedCount').textContent = summary.duplicates_eliminated_count;
+
+      const gallery = document.getElementById('annotatedGallery');
+      gallery.innerHTML = '';
+      const overlays = isSingle ? [data.annotated_image_base64] : (data.annotated_images_base64 || []);
+      overlays.forEach((b64, idx) => {
+        if (!b64) return;
+        const div = document.createElement('div');
+        div.className = 'glass rounded-xl overflow-hidden border border-gray-800 p-2 space-y-2';
+        div.innerHTML = '<img src="data:image/jpeg;base64,' + b64 + '" class="w-full rounded-lg object-contain bg-black max-h-96"><div class="text-[11px] text-gray-400 text-center font-mono">View Angle #' + (idx+1) + ' (YOLO11-seg Overlay)</div>';
+        gallery.appendChild(div);
+      });
+
+      const dContainer = document.getElementById('damagesListContainer');
+      dContainer.innerHTML = '';
+      damages.forEach(d => {
+        const cls = d.class_name || 'Damage';
+        const part = (d.part_location || 'Panel').replace(/_/g, ' ').toUpperCase();
+        const sev = (d.severity ? d.severity.level : 'moderate').toUpperCase();
+        const action = (d.decision ? d.decision.action : 'repair').toUpperCase();
+        const cost = Math.round((d.cost_range && d.cost_range.expected_cost) || (d.cost_estimate && d.cost_estimate.cost_range && d.cost_estimate.cost_range.expected_cost) || 0);
+
+        let sevColor = 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10';
+        if (sev === 'MODERATE') sevColor = 'text-amber-400 border-amber-500/20 bg-amber-500/10';
+        if (sev === 'SEVERE') sevColor = 'text-rose-400 border-rose-500/20 bg-rose-500/10';
+
+        const card = document.createElement('div');
+        card.className = 'glass rounded-xl p-5 border border-gray-800 space-y-3';
+        card.innerHTML = '<div class="flex items-center justify-between"><div class="flex items-center space-x-2"><span class="font-bold text-white text-base">' + cls.toUpperCase() + '</span><span class="text-xs text-gray-400 font-mono">on ' + part + '</span></div><span class="text-xs font-semibold px-2 py-0.5 rounded border ' + sevColor + '">' + sev + '</span></div><div class="text-xs text-gray-300 bg-gray-900/70 p-3 rounded-lg border border-gray-800/80 space-y-1"><div><strong class="text-indigo-400">Action:</strong> <span class="font-bold text-white">' + action + '</span> (' + (d.decision ? d.decision.technique : 'Standard remediation') + ')</div><div><strong class="text-gray-400">Safety Risk:</strong> ' + (d.decision ? d.decision.safety_risk : 'Low') + '</div><div><strong class="text-gray-400">Audit Rationale:</strong> ' + ((d.decision && d.decision.rationale) || (d.severity && d.severity.explanation) || 'Collision standard evaluation') + '</div></div><div class="flex items-center justify-between text-xs pt-1"><span class="text-gray-400">Estimated Repair:</span><span class="font-bold text-emerald-400 text-sm">Rs. ' + cost.toLocaleString('en-IN') + '</span></div>';
+        dContainer.appendChild(card);
+      });
+
+      const metricsTbody = document.getElementById('metricsTableBody');
+      metricsTbody.innerHTML = '';
+      damages.forEach(d => {
+        const m = d.metrics || {};
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-800/40 transition';
+        tr.innerHTML = '<td class="p-3 font-mono font-bold text-indigo-400">' + (d.fused_id || d.damage_id) + '</td><td class="p-3 font-semibold text-white">' + ((d.class_name || '').toUpperCase()) + '</td><td class="p-3 text-gray-300">' + ((d.part_location || '').replace(/_/g, ' ')) + '</td><td class="p-3 font-mono text-gray-300">' + (m.pixel_area || 0) + ' px</td><td class="p-3 font-mono text-gray-300">' + (((m.relative_area_ratio || 0) * 100).toFixed(2)) + '%</td><td class="p-3 font-mono text-gray-300">' + (m.contour_complexity || 1.0) + '</td><td class="p-3 font-mono text-gray-300">' + (m.solidity || 1.0) + '</td><td class="p-3 font-semibold uppercase text-amber-400">' + (d.severity ? d.severity.level : 'moderate') + '</td>';
+        metricsTbody.appendChild(tr);
+      });
+
+      let partsTotal = 0, laborTotal = 0, paintTotal = 0, taxTotal = 0;
+      const allLineItems = [];
+
+      damages.forEach(d => {
+        const items = d.line_items || (d.cost_estimate ? d.cost_estimate.line_items : []) || [];
+        items.forEach(it => allLineItems.push(it));
+        const sum = d.cost_summary || (d.cost_estimate ? d.cost_estimate.summary : {}) || {};
+        partsTotal += (sum.parts_subtotal || 0);
+        laborTotal += (sum.body_labor_subtotal || 0);
+        paintTotal += (sum.paint_labor_subtotal || 0) + (sum.paint_materials_subtotal || 0);
+        taxTotal += (sum.shop_supplies_subtotal || 0) + (sum.tax_total || 0);
+      });
+
+      document.getElementById('resPartsSubtotal').textContent = 'Rs. ' + Math.round(partsTotal).toLocaleString('en-IN');
+      document.getElementById('resLaborSubtotal').textContent = 'Rs. ' + Math.round(laborTotal).toLocaleString('en-IN');
+      document.getElementById('resPaintSubtotal').textContent = 'Rs. ' + Math.round(paintTotal).toLocaleString('en-IN');
+      document.getElementById('resTaxSubtotal').textContent = 'Rs. ' + Math.round(taxTotal).toLocaleString('en-IN');
+
+      const lineTbody = document.getElementById('lineItemsTableBody');
+      lineTbody.innerHTML = '';
+      allLineItems.forEach(it => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-800/40 transition';
+        tr.innerHTML = '<td class="p-3 font-semibold text-indigo-300 uppercase text-[11px]">' + it.category.replace(/_/g, ' ') + '</td><td class="p-3 text-white">' + it.description + '</td><td class="p-3 text-center text-gray-300 font-mono">' + (it.unit === 'flat' ? '-' : it.quantity + ' ' + it.unit) + '</td><td class="p-3 text-right text-gray-300 font-mono">Rs. ' + Math.round(it.unit_price).toLocaleString('en-IN') + '</td><td class="p-3 text-right font-bold text-emerald-400 font-mono">Rs. ' + Math.round(it.total_price).toLocaleString('en-IN') + '</td>';
+        lineTbody.appendChild(tr);
+      });
+    }
+
+    function resetToUpload() {
+      selectedFiles = [];
+      document.getElementById('fileInput').value = '';
+      document.getElementById('previewContainer').innerHTML = '';
+      document.getElementById('previewContainer').classList.add('hidden');
+      document.getElementById('analyzeBtn').disabled = true;
+      document.getElementById('uploadView').classList.remove('hidden');
+      document.getElementById('loadingView').classList.add('hidden');
+      document.getElementById('resultsView').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
