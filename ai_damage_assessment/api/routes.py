@@ -20,6 +20,7 @@ from ..severity.measurements import VisualDamageMeasurementEngine
 from ..severity.severity_engine import SeverityAssessmentEngine
 from ..decision.repair_replace import RepairReplaceEngine
 from ..cost.estimator import RepairCostEstimator
+from ..cost.vehicle_intel import VehicleIntelligence
 from ..uncertainty.estimator import UncertaintyEstimator
 from ..fusion.multi_view_fusion import MultiViewDamageFusion
 from ..report.visualizer import DamageVisualizer
@@ -62,6 +63,9 @@ async def inspect_single_image(
     segmentor = get_segmentor()
     detections = segmentor.predict(img_bgr)
 
+    # Resolve vehicle classification & pricing tier from make/model and category
+    effective_tier, tier_multiplier, tier_desc = VehicleIntelligence.resolve_tier(make_model, vehicle_type.value)
+
     # Process all detections
     assessed_damages = []
     fused_instances_for_report = []
@@ -69,7 +73,8 @@ async def inspect_single_image(
     for det in detections:
         metrics = _meas_engine.compute_metrics_from_mask(det.binary_mask, det.image_shape)
         sev = _sev_engine.evaluate(det.class_name, metrics, det.estimated_part, det.confidence)
-        dec = _dec_engine.evaluate(det.class_name, det.estimated_part, sev.level, metrics)
+        part_info = _cost_engine.parts_catalog.get(det.estimated_part, {})
+        dec = _dec_engine.evaluate(det.class_name, det.estimated_part, sev.level, metrics, part_info)
         unc = _unc_engine.evaluate(det.confidence, metrics)
         cost = _cost_engine.estimate_damage_instance_cost(
             det.class_name,
@@ -77,7 +82,7 @@ async def inspect_single_image(
             sev.level,
             dec.action,
             metrics,
-            vehicle_type=vehicle_type.value,
+            vehicle_type=effective_tier,
             uncertainty_score=unc.uncertainty_score
         )
 
@@ -98,7 +103,7 @@ async def inspect_single_image(
         })
 
     # Wrap in multi-view fusion for uniform report building
-    fusion_result = _fusion_engine.fuse_multi_image_detections([img_bgr], [detections], vehicle_type=vehicle_type.value)
+    fusion_result = _fusion_engine.fuse_multi_image_detections([img_bgr], [detections], vehicle_type=effective_tier)
     markdown_rep = InspectionReportBuilder.build_markdown_report(fusion_result, {"make_model": make_model, "vehicle_type": vehicle_type.value})
 
     # Overlay rendering
@@ -141,9 +146,12 @@ async def inspect_multi_images(
     segmentor = get_segmentor()
     all_detections = [segmentor.predict(img) for img in images_bgr]
 
+    # Resolve vehicle tier for multi-view assessment
+    effective_tier, tier_multiplier, tier_desc = VehicleIntelligence.resolve_tier(make_model, vehicle_type.value)
+
     # Run multi-view fusion
-    result = _fusion_engine.fuse_multi_image_detections(images_bgr, all_detections, vehicle_type=vehicle_type.value)
-    markdown_rep = InspectionReportBuilder.build_markdown_report(result, {"make_model": make_model, "vehicle_type": vehicle_type.value})
+    result = _fusion_engine.fuse_multi_image_detections(images_bgr, all_detections, vehicle_type=effective_tier)
+    markdown_rep = InspectionReportBuilder.build_markdown_report(result, {"make_model": make_model, "vehicle_type": effective_tier, "classification": tier_desc})
 
     # Render overlays for each image
     overlays_base64 = []
@@ -175,7 +183,7 @@ async def inspect_multi_images(
 
     return MultiImageInspectionResponse(
         status="success",
-        vehicle_type=vehicle_type.value,
+        vehicle_type=effective_tier,
         make_model=make_model,
         summary=result.to_dict()["summary"],
         fused_damages=fused_damage_dicts,

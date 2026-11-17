@@ -78,22 +78,22 @@ class RepairCostEstimator:
 
     VEHICLE_MULTIPLIERS = {
         "sedan": 1.00,
-        "hatchback": 0.95,
-        "suv": 1.15,
-        "truck": 1.25,
-        "luxury": 1.60,
-        "bike": 0.70,
-        "bus": 1.80
+        "hatchback": 0.85,
+        "suv": 1.35,
+        "truck": 1.40,
+        "luxury": 4.50,
+        "bike": 0.40,
+        "bus": 2.00
     }
 
     def __init__(
         self,
         parts_catalog_path: str = "ai_damage_assessment/config/parts_catalog.json",
-        labor_rate: float = 65.00,
-        paint_rate: float = 75.00,
-        paint_material_rate_per_sq_ft: float = 45.00,
+        labor_rate: float = 650.00,
+        paint_rate: float = 750.00,
+        paint_material_rate_per_sq_ft: float = 450.00,
         shop_supplies_rate: float = 0.08,
-        tax_rate: float = 0.07
+        tax_rate: float = 0.18
     ):
         self.labor_rate = labor_rate
         self.paint_rate = paint_rate
@@ -169,7 +169,7 @@ class RepairCostEstimator:
                 unit_price=self.labor_rate,
                 total_price=replace_hours * self.labor_rate
             ))
-            explanation_steps.append(f"Component replacement required for {part_location} (${base_part_cost:.2f} parts + {replace_hours:.1f}h R&I).")
+            explanation_steps.append(f"Component replacement required for {part_location} (₹{base_part_cost:.2f} parts + {replace_hours:.1f}h R&I).")
 
         else:  # REPAIR
             base_repair_hours = part_data.get("standard_labor_repair_hours", 1.5)
@@ -264,9 +264,22 @@ class RepairCostEstimator:
         if v_mult != 1.0:
             explanation_steps.append(f"Applied {vehicle_type.upper()} vehicle class multiplier of {v_mult:.2f}x.")
 
+        # Scale line items to match vehicle class multiplier
+        scaled_line_items = [
+            CostItem(
+                category=it.category,
+                description=it.description,
+                quantity=it.quantity,
+                unit=it.unit,
+                unit_price=round(it.unit_price * v_mult, 2),
+                total_price=round(it.total_price * v_mult, 2)
+            )
+            for it in line_items
+        ]
+
         return CostEstimateResult(
             cost_range=CostRange(min_cost=min_cost, expected_cost=base_total, max_cost=max_cost),
-            line_items=line_items,
+            line_items=scaled_line_items,
             parts_subtotal=parts_subtotal * v_mult,
             body_labor_subtotal=body_labor_cost * v_mult,
             paint_labor_subtotal=paint_labor_cost * v_mult,

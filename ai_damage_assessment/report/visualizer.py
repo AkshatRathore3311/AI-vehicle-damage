@@ -76,7 +76,7 @@ class DamageVisualizer:
             # Badge Text
             label_text = f"{cls_name.upper()} ({conf*100:.0f}%) | {sev_level.upper()} -> {action.upper()}"
             if cost > 0:
-                label_text += f" | ${cost:,.0f}"
+                label_text += f" | Rs. {cost:,.0f}"
 
             (tw, th), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
             badge_y = max(th + 5, y1 - 6)

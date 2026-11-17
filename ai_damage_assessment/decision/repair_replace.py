@@ -104,31 +104,45 @@ class RepairReplaceEngine:
                     safety_risk="Medium - potential panel corrosion if untreated."
                 )
 
-        # 3. Dents logic
+        # 3. Dents & Crumple logic (Engineering collision standards)
         if class_key == "dent":
-            if severity_level == SeverityLevel.MINOR and metrics.relative_area_ratio < 0.15:
+            # Severe damage or aluminum panel crumple requires OEM replacement
+            is_critical_panel = part_location in ["hood", "front_bumper", "roof"]
+            is_large_damage = metrics.pixel_area > 4500 or metrics.relative_area_ratio > 0.05 or metrics.contour_complexity > 1.20
+
+            if material == "aluminum" and (severity_level in [SeverityLevel.MODERATE, SeverityLevel.SEVERE] or is_large_damage):
+                return DecisionResult(
+                    action=ActionType.REPLACE,
+                    confidence=0.95,
+                    technique="Full OEM Aluminum Panel Replacement",
+                    rationale="Aluminum work-hardens upon impact and cannot be safely stud-pulled or memory-restored. Replacement mandatory under OEM specifications.",
+                    safety_risk="High - compromised front crumple zone crash absorption."
+                )
+
+            if severity_level == SeverityLevel.SEVERE or (is_critical_panel and is_large_damage):
+                return DecisionResult(
+                    action=ActionType.REPLACE,
+                    confidence=0.92,
+                    technique="Full OEM Component Replacement & Structural Alignment",
+                    rationale="Heavy structural buckling across panel bodyline exceeds repairable yield strength. Repair labor and safety risk exceed replacement threshold.",
+                    safety_risk="High - structural deformation weakens impact resistance."
+                )
+
+            if severity_level == SeverityLevel.MINOR and metrics.relative_area_ratio < 0.05 and metrics.contour_complexity < 1.15:
                 return DecisionResult(
                     action=ActionType.REPAIR,
                     confidence=0.90,
                     technique="Paintless Dent Repair (PDR)",
-                    rationale="Minor depression without paint fracture or sharp body crease; suitable for PDR.",
+                    rationale="Minor superficial depression without paint fracture or sharp body crease; suitable for PDR.",
                     safety_risk="Low - superficial contour irregularity."
-                )
-            elif severity_level == SeverityLevel.MODERATE or (severity_level == SeverityLevel.SEVERE and material != "aluminum" and metrics.relative_area_ratio < 0.40):
-                return DecisionResult(
-                    action=ActionType.REPAIR,
-                    confidence=0.84,
-                    technique="Conventional Stud-Pulling, Body Filler & Refinishing",
-                    rationale="Deformation exceeds PDR threshold but retains structural panel mount integrity.",
-                    safety_risk="Low to Medium - panel alignment required."
                 )
             else:
                 return DecisionResult(
-                    action=ActionType.REPLACE,
-                    confidence=0.87,
-                    technique="Full OEM Panel Replacement & Welding / Bolting",
-                    rationale="Severe crumple (>40% panel coverage or aluminum work hardening); repair labor exceeds replacement cost.",
-                    safety_risk="Medium to High - structural deformation weakens impact resistance."
+                    action=ActionType.REPAIR,
+                    confidence=0.85,
+                    technique="Conventional Stud-Pulling, Body Filler & Refinishing",
+                    rationale="Deformation exceeds PDR threshold but retains panel mount integrity.",
+                    safety_risk="Low to Medium - panel alignment required."
                 )
 
         # 4. Cracks logic

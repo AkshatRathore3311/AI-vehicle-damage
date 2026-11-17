@@ -86,20 +86,49 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
-            <i class="fa-solid fa-images text-indigo-400 mr-1"></i> 3. Upload Vehicle Damage Photos (Single or Multiple)
-          </label>
-          <div id="dropZone" class="drop-zone rounded-2xl p-8 text-center cursor-pointer relative bg-gray-900/40">
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+              <i class="fa-solid fa-images text-indigo-400 mr-1"></i> 3. Upload Vehicle Damage Photos (Multiple Angles Supported)
+            </label>
+            <span class="text-[11px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full font-medium">
+              <i class="fa-solid fa-camera mr-1"></i> Add 1 or Many Photos
+            </span>
+          </div>
+
+          <div id="dropZone" class="drop-zone rounded-2xl p-6 sm:p-8 text-center cursor-pointer relative bg-gray-900/40">
             <input type="file" id="fileInput" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(event)">
-            <div class="space-y-3">
+            <div class="space-y-3 pointer-events-none">
               <div class="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto text-2xl">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
               </div>
-              <div class="text-sm text-gray-200"><span class="font-semibold text-indigo-400">Click to browse</span> or drag and drop photos here</div>
-              <p class="text-xs text-gray-500">Supports JPG, PNG, WEBP (Upload multiple view angles to test deduplication)</p>
+              <div class="text-sm text-gray-200">
+                <span class="font-semibold text-indigo-400">Click to browse photos</span> or drag & drop them here
+              </div>
+              <p class="text-xs text-gray-400">
+                Supports JPG, PNG, WEBP. You can select multiple photos at once, or add photos one-by-one from different angles!
+              </p>
             </div>
           </div>
-          <div id="previewContainer" class="hidden mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+          <!-- Previews & Batch Controls Container -->
+          <div id="previewWrapper" class="hidden mt-4 space-y-3">
+            <div class="flex items-center justify-between bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="selectedCountText" class="text-xs font-bold text-white">0 Photos Attached</span>
+                <span class="text-[11px] text-gray-400 font-mono hidden sm:inline">(Multi-angle graph deduplication active)</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button type="button" onclick="document.getElementById('fileInput').click()" class="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-semibold">
+                  <i class="fa-solid fa-plus"></i> Add More Photos
+                </button>
+                <button type="button" onclick="clearAllFiles()" class="text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg transition flex items-center gap-1 font-semibold">
+                  <i class="fa-solid fa-trash-can"></i> Clear All
+                </button>
+              </div>
+            </div>
+            <div id="previewContainer" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+          </div>
         </div>
 
         <button id="analyzeBtn" onclick="submitInspection()" disabled class="w-full py-4 rounded-xl text-base font-bold text-white gradient-btn flex items-center justify-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-xl shadow-indigo-600/20">
@@ -298,7 +327,28 @@
     function handleFileSelect(e) {
       const files = Array.from(e.target.files);
       if (!files.length) return;
-      selectedFiles = files;
+      addFiles(files);
+      e.target.value = ''; // Reset input so user can choose more files immediately
+    }
+
+    function addFiles(files) {
+      files.forEach(f => {
+        // Prevent duplicate file entries by filename & size
+        if (!selectedFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+          selectedFiles.push(f);
+        }
+      });
+      renderPreviews();
+    }
+
+    function removeFile(index) {
+      selectedFiles.splice(index, 1);
+      renderPreviews();
+    }
+
+    function clearAllFiles() {
+      selectedFiles = [];
+      document.getElementById('fileInput').value = '';
       renderPreviews();
     }
 
@@ -310,33 +360,42 @@
       dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false);
     });
     dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
       const dt = e.dataTransfer;
       if (dt.files && dt.files.length) {
-        selectedFiles = Array.from(dt.files);
-        renderPreviews();
+        addFiles(Array.from(dt.files));
       }
     });
 
     function renderPreviews() {
+      const wrapper = document.getElementById('previewWrapper');
       const container = document.getElementById('previewContainer');
       const analyzeBtn = document.getElementById('analyzeBtn');
+      const countText = document.getElementById('selectedCountText');
+
       container.innerHTML = '';
       if (selectedFiles.length === 0) {
-        container.classList.add('hidden');
+        wrapper.classList.add('hidden');
         analyzeBtn.disabled = true;
         return;
       }
-      container.classList.remove('hidden');
+
+      wrapper.classList.remove('hidden');
       analyzeBtn.disabled = false;
+      countText.textContent = selectedFiles.length + (selectedFiles.length === 1 ? ' Photo Attached' : ' Photos Attached (Multi-View Deduplication Active)');
+
       selectedFiles.forEach((file, idx) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const div = document.createElement('div');
-          div.className = 'relative group rounded-xl overflow-hidden border border-gray-800 bg-gray-900 aspect-video';
-          div.innerHTML = '<img src="' + e.target.result + '" class="w-full h-full object-cover"><div class="absolute top-1 right-1 bg-black/70 px-1.5 py-0.5 rounded text-[10px] text-gray-300 font-mono">#' + (idx+1) + '</div>';
-          container.appendChild(div);
-        };
-        reader.readAsDataURL(file);
+        const objectUrl = URL.createObjectURL(file);
+        const div = document.createElement('div');
+        div.className = 'relative group rounded-xl overflow-hidden border border-gray-800 bg-gray-900 aspect-video shadow-lg';
+        div.innerHTML = '<img src="' + objectUrl + '" class="w-full h-full object-cover">' +
+          '<div class="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur px-2 py-0.5 rounded text-[10px] text-indigo-300 font-mono font-bold border border-indigo-500/30">Angle #' + (idx + 1) + '</div>' +
+          '<button type="button" onclick="removeFile(' + idx + ')" title="Remove photo" class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-rose-600/90 text-white flex items-center justify-center text-xs opacity-90 hover:opacity-100 hover:scale-110 transition shadow cursor-pointer">' +
+            '<i class="fa-solid fa-xmark"></i>' +
+          '</button>' +
+          '<div class="absolute bottom-1 left-1.5 right-1.5 text-[10px] text-gray-300 truncate font-mono bg-black/70 px-1.5 py-0.5 rounded">' + file.name + '</div>';
+        container.appendChild(div);
       });
     }
 
@@ -487,8 +546,8 @@
     function resetToUpload() {
       selectedFiles = [];
       document.getElementById('fileInput').value = '';
+      document.getElementById('previewWrapper').classList.add('hidden');
       document.getElementById('previewContainer').innerHTML = '';
-      document.getElementById('previewContainer').classList.add('hidden');
       document.getElementById('analyzeBtn').disabled = true;
       document.getElementById('uploadView').classList.remove('hidden');
       document.getElementById('loadingView').classList.add('hidden');

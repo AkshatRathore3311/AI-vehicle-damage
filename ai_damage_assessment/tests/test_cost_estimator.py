@@ -37,4 +37,4 @@ def test_luxury_vehicle_multiplier():
     sedan_res = estimator.estimate_damage_instance_cost("dent", "front_bumper", SeverityLevel.MODERATE, ActionType.REPAIR, metrics, "sedan")
     luxury_res = estimator.estimate_damage_instance_cost("dent", "front_bumper", SeverityLevel.MODERATE, ActionType.REPAIR, metrics, "luxury")
 
-    assert pytest.approx(luxury_res.cost_range.expected_cost, rel=1e-2) == sedan_res.cost_range.expected_cost * 1.60
+    assert pytest.approx(luxury_res.cost_range.expected_cost, rel=1e-2) == sedan_res.cost_range.expected_cost * 4.50

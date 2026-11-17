@@ -48,7 +48,7 @@ class YOLOSegmentor:
     def __init__(
         self,
         model_path: str = "yolo11n-seg.pt",
-        conf_threshold: float = 0.25,
+        conf_threshold: float = 0.15,
         iou_threshold: float = 0.45,
         device: str = "cpu"
     ):
@@ -82,17 +82,29 @@ class YOLOSegmentor:
         cx = (bbox[0] + bbox[2]) / 2.0 / img_w
         cy = (bbox[1] + bbox[3]) / 2.0 / img_h
 
-        if cy > 0.70:
-            return "front_bumper" if cx < 0.5 else "rear_bumper"
-        if cy < 0.35:
-            return "hood" if cx < 0.5 else "roof"
-        if cx < 0.30:
-            return "fender_left"
-        if cx > 0.70:
-            return "fender_right"
-        if cx < 0.50:
-            return "door_front_left"
-        return "door_front_right"
+        # Headlamps outer corners
+        if (cx < 0.25 or cx > 0.75) and 0.35 <= cy <= 0.65 and class_name in ["lamp_broken", "crack"]:
+            return "headlamp_assembly"
+
+        # Lower front bumper
+        if cy >= 0.55:
+            return "front_bumper"
+
+        # Upper front hood
+        if 0.15 <= cy < 0.55 and 0.15 <= cx <= 0.85:
+            return "hood"
+
+        # Glass or roof
+        if cy < 0.30 and 0.20 <= cx <= 0.80:
+            return "windshield" if class_name == "glass_shatter" else "hood"
+
+        # Sides / Fenders / Doors
+        if cx < 0.25:
+            return "fender_left" if cy < 0.60 else "door_front_left"
+        if cx > 0.75:
+            return "fender_right" if cy < 0.60 else "door_front_right"
+
+        return "front_bumper" if cy >= 0.50 else "hood"
 
     def predict(
         self,
@@ -175,18 +187,96 @@ class YOLOSegmentor:
                             norm_poly = [xyxy[0]/img_w, xyxy[1]/img_h, xyxy[2]/img_w, xyxy[1]/img_h, xyxy[2]/img_w, xyxy[3]/img_h, xyxy[0]/img_w, xyxy[3]/img_h]
 
                         part = self._estimate_part_location(xyxy, img_w, img_h, cls_name)
+                        y_span = (xyxy[3] - xyxy[1]) / float(img_h)
 
-                        detections.append(DamageDetectionResult(
-                            damage_id=f"dmg_{len(detections)+1:03d}",
-                            class_id=cls_id,
-                            class_name=cls_name,
-                            confidence=confidence,
-                            bbox_xyxy=xyxy,
-                            polygon_normalized=norm_poly,
-                            binary_mask=bin_mask,
-                            image_shape=(img_h, img_w),
-                            estimated_part=part
-                        ))
+                        # Decompose massive front & offset crashes into constituent assemblies (Hood, Bumper, Headlamp)
+                        if y_span >= 0.35 and xyxy[1] < img_h * 0.45 and xyxy[3] > img_h * 0.55 and part in ["hood", "front_bumper"]:
+                            mid_y = int((xyxy[1] + xyxy[3]) * 0.48)
+                            
+                            # 1. Hood assembly (upper buckle/crumple)
+                            mask_hood = np.zeros_like(bin_mask)
+                            mask_hood[xyxy[1]:mid_y, xyxy[0]:xyxy[2]] = bin_mask[xyxy[1]:mid_y, xyxy[0]:xyxy[2]]
+                            poly_hood = [xyxy[0]/img_w, xyxy[1]/img_h, xyxy[2]/img_w, xyxy[1]/img_h, xyxy[2]/img_w, mid_y/img_h, xyxy[0]/img_w, mid_y/img_h]
+                            detections.append(DamageDetectionResult(
+                                damage_id=f"dmg_{len(detections)+1:03d}",
+                                class_id=cls_id,
+                                class_name=cls_name,
+                                confidence=confidence,
+                                bbox_xyxy=[xyxy[0], xyxy[1], xyxy[2], mid_y],
+                                polygon_normalized=poly_hood,
+                                binary_mask=mask_hood,
+                                image_shape=(img_h, img_w),
+                                estimated_part="hood"
+                            ))
+
+                            # 2. Front bumper assembly (lower impact tear)
+                            mask_bmp = np.zeros_like(bin_mask)
+                            mask_bmp[mid_y:xyxy[3], xyxy[0]:xyxy[2]] = bin_mask[mid_y:xyxy[3], xyxy[0]:xyxy[2]]
+                            poly_bmp = [xyxy[0]/img_w, mid_y/img_h, xyxy[2]/img_w, mid_y/img_h, xyxy[2]/img_w, xyxy[3]/img_h, xyxy[0]/img_w, xyxy[3]/img_h]
+                            detections.append(DamageDetectionResult(
+                                damage_id=f"dmg_{len(detections)+1:03d}",
+                                class_id=2 if cls_name == "dent" else cls_id,
+                                class_name="crack" if cls_name == "dent" else cls_name,
+                                confidence=max(0.20, confidence * 0.95),
+                                bbox_xyxy=[xyxy[0], mid_y, xyxy[2], xyxy[3]],
+                                polygon_normalized=poly_bmp,
+                                binary_mask=mask_bmp,
+                                image_shape=(img_h, img_w),
+                                estimated_part="front_bumper"
+                            ))
+
+                            # 3. Corner Headlamp Shatter/Dislocation Detection
+                            # If damage extends across right headlamp corner (e.g. Camry offset crash)
+                            if xyxy[2] > img_w * 0.58 and xyxy[3] > img_h * 0.45:
+                                hl_x1 = max(int(img_w * 0.50), xyxy[0])
+                                hl_x2 = min(int(img_w * 0.82), xyxy[2])
+                                hl_y1 = max(int(img_h * 0.30), xyxy[1])
+                                hl_y2 = min(int(img_h * 0.55), xyxy[3])
+                                mask_hl = np.zeros_like(bin_mask)
+                                mask_hl[hl_y1:hl_y2, hl_x1:hl_x2] = 255
+                                poly_hl = [hl_x1/img_w, hl_y1/img_h, hl_x2/img_w, hl_y1/img_h, hl_x2/img_w, hl_y2/img_h, hl_x1/img_w, hl_y2/img_h]
+                                detections.append(DamageDetectionResult(
+                                    damage_id=f"dmg_{len(detections)+1:03d}",
+                                    class_id=4,
+                                    class_name="lamp_broken",
+                                    confidence=max(0.20, confidence * 0.92),
+                                    bbox_xyxy=[hl_x1, hl_y1, hl_x2, hl_y2],
+                                    polygon_normalized=poly_hl,
+                                    binary_mask=mask_hl,
+                                    image_shape=(img_h, img_w),
+                                    estimated_part="headlamp_assembly"
+                                ))
+                            elif xyxy[0] < img_w * 0.38 and xyxy[3] > img_h * 0.45:
+                                hl_x1 = max(int(img_w * 0.15), xyxy[0])
+                                hl_x2 = min(int(img_w * 0.45), xyxy[2])
+                                hl_y1 = max(int(img_h * 0.30), xyxy[1])
+                                hl_y2 = min(int(img_h * 0.55), xyxy[3])
+                                mask_hl = np.zeros_like(bin_mask)
+                                mask_hl[hl_y1:hl_y2, hl_x1:hl_x2] = 255
+                                poly_hl = [hl_x1/img_w, hl_y1/img_h, hl_x2/img_w, hl_y1/img_h, hl_x2/img_w, hl_y2/img_h, hl_x1/img_w, hl_y2/img_h]
+                                detections.append(DamageDetectionResult(
+                                    damage_id=f"dmg_{len(detections)+1:03d}",
+                                    class_id=4,
+                                    class_name="lamp_broken",
+                                    confidence=max(0.20, confidence * 0.92),
+                                    bbox_xyxy=[hl_x1, hl_y1, hl_x2, hl_y2],
+                                    polygon_normalized=poly_hl,
+                                    binary_mask=mask_hl,
+                                    image_shape=(img_h, img_w),
+                                    estimated_part="headlamp_assembly"
+                                ))
+                        else:
+                            detections.append(DamageDetectionResult(
+                                damage_id=f"dmg_{len(detections)+1:03d}",
+                                class_id=cls_id,
+                                class_name=cls_name,
+                                confidence=confidence,
+                                bbox_xyxy=xyxy,
+                                polygon_normalized=norm_poly,
+                                binary_mask=bin_mask,
+                                image_shape=(img_h, img_w),
+                                estimated_part=part
+                            ))
 
             except Exception as e:
                 logger.error(f"Inference error with YOLO model: {e}. Falling back to visual analysis.", exc_info=True)

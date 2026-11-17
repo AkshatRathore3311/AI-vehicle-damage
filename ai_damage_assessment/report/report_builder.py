@@ -21,11 +21,11 @@ class InspectionReportBuilder:
             "",
             "---",
             "## 1. Executive Cost Summary",
-            f"- **Estimated Total Repair Cost**: **${cr.expected_cost:,.2f} {cr.currency}**",
-            f"- **Confidence Cost Interval**: ${cr.min_cost:,.2f} — ${cr.max_cost:,.2f}",
-            f"- **Parts Subtotal**: ${result.overall_parts_cost:,.2f}",
-            f"- **Labor Subtotal**: ${result.overall_labor_cost:,.2f}",
-            f"- **Paint & Materials Subtotal**: ${result.overall_paint_cost:,.2f}",
+            f"- **Estimated Total Repair Cost**: **₹{cr.expected_cost:,.2f} {cr.currency}**",
+            f"- **Confidence Cost Interval**: ₹{cr.min_cost:,.2f} — ₹{cr.max_cost:,.2f}",
+            f"- **Parts Subtotal**: ₹{result.overall_parts_cost:,.2f}",
+            f"- **Labor Subtotal**: ₹{result.overall_labor_cost:,.2f}",
+            f"- **Paint & Materials Subtotal**: ₹{result.overall_paint_cost:,.2f}",
             "",
             "---",
             "## 2. Multi-View Damage Deduplication Summary",
@@ -45,7 +45,7 @@ class InspectionReportBuilder:
             md_lines.append(
                 f"| {dmg.fused_id} | {dmg.class_name.upper()} | {dmg.part_location.replace('_', ' ').title()} | "
                 f"{dmg.severity.level.value.upper()} | {dmg.decision.action.value.upper()} | "
-                f"{dmg.best_confidence*100:.0f}% | ${dmg.cost_estimate.cost_range.expected_cost:,.2f} | {views_str} |"
+                f"{dmg.best_confidence*100:.0f}% | ₹{dmg.cost_estimate.cost_range.expected_cost:,.2f} | {views_str} |"
             )
 
         md_lines.extend([

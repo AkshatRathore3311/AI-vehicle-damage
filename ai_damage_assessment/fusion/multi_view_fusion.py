@@ -166,7 +166,8 @@ class MultiViewDamageFusion:
 
             # Evaluate severity, decision, uncertainty, cost
             sev = self.sev_engine.evaluate(det.class_name, metrics, det.estimated_part, det.confidence)
-            dec = self.dec_engine.evaluate(det.class_name, det.estimated_part, sev.level, metrics)
+            part_info = self.cost_engine.parts_catalog.get(det.estimated_part, {})
+            dec = self.dec_engine.evaluate(det.class_name, det.estimated_part, sev.level, metrics, part_info)
             unc = self.unc_engine.evaluate(det.confidence, metrics)
             cost = self.cost_engine.estimate_damage_instance_cost(
                 det.class_name,

@@ -80,8 +80,8 @@
     "material_type": "laminated_glass"
   },
   "headlamp_assembly": {
-    "base_part_price": 5500.0,
-    "standard_labor_replace_hours": 1.2,
+    "base_part_price": 4806.0,
+    "standard_labor_replace_hours": 1.0,
     "standard_labor_repair_hours": 0.5,
     "paint_panels_count": 0,
     "paint_labor_hours": 0.0,
